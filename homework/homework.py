@@ -3,61 +3,12 @@ Escriba el codigo que ejecute la accion solicitada.
 """
 
 # pylint: disable=import-outside-toplevel
-import os
-import pandas as pd
-from zipfile import ZipFile
 
-def process_campaign_data():
-    """
-    Limpia y transforma los datos de una campaña de marketing de un banco, 
-    separando la información en tres archivos CSV: client.csv, campaign.csv 
-    y economics.csv, después de procesar los archivos CSV comprimidos en zip.
-    """
-
-    month_map = {
-        "jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", 
-        "jun": "06", "jul": "07", "aug": "08", "sep": "09", "oct": "10", 
-        "nov": "11", "dec": "12"
-    }
-
-    input_dir = os.path.join("files", "input")
-    output_dir = os.path.join("files", "output")
-    
-    os.makedirs(output_dir, exist_ok=True)
-    
-    zip_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
-    combined_df = pd.concat([pd.read_csv(ZipFile(zip_file).open(ZipFile(zip_file).namelist()[0])) for zip_file in zip_files], ignore_index=True)
-    
-    client_df = combined_df[["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]].copy()
-    client_df["job"] = client_df["job"].str.replace(".", "").str.replace("-", "_")
-    client_df["education"] = client_df["education"].replace("unknown", pd.NA).apply(lambda x: x.replace("-", "_").replace(".", "_") if pd.notna(x) else x)
-    client_df["credit_default"] = client_df["credit_default"].apply(lambda x: 1 if x == "yes" else 0)
-    client_df["mortgage"] = client_df["mortgage"].apply(lambda x: 1 if x == "yes" else 0)
-
-    campaign_df = combined_df[["client_id", "number_contacts", "contact_duration", "previous_campaign_contacts", "previous_outcome", "campaign_outcome", "month", "day"]].copy()
-    campaign_df["month"] = campaign_df["month"].apply(lambda x: month_map.get(x.lower(), "00"))
-    campaign_df["previous_outcome"] = campaign_df["previous_outcome"].apply(lambda x: 1 if x == "success" else 0)
-    campaign_df["campaign_outcome"] = campaign_df["campaign_outcome"].apply(lambda x: 1 if x == "yes" else 0)
-    campaign_df["month"] = campaign_df["month"].astype(str).str.zfill(2)
-    campaign_df["day"] = campaign_df["day"].astype(str).str.zfill(2)
-    campaign_df["last_contact_date"] = "2022-" + campaign_df["month"] + "-" + campaign_df["day"]
-    campaign_df.drop(columns=["month", "day"], inplace=True)
-
-    economics_df = combined_df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
-
-    client_df.to_csv(os.path.join(output_dir, "client.csv"), index=False)
-    campaign_df.to_csv(os.path.join(output_dir, "campaign.csv"), index=False)
-    economics_df.to_csv(os.path.join(output_dir, "economics.csv"), index=False)
-
-if __name__ == "__main__":
-    process_campaign_data()
-    
-    
-   
+def clean_campaign_data():
     """
     En esta tarea se le pide que limpie los datos de una campaña de
     marketing realizada por un banco, la cual tiene como fin la
-    recolección de datos de clientes para ofrecerls un préstamo.
+    recolección de datos de clientes para ofrecerles un préstamo.
 
     La información recolectada se encuentra en la carpeta
     files/input/ en varios archivos csv.zip comprimidos para ahorrar
@@ -84,7 +35,7 @@ if __name__ == "__main__":
     - number_contacts
     - contact_duration
     - previous_campaing_contacts
-    - previous_outcome: cmabiar "success" por 1, y cualquier otro valor a 0
+    - previous_outcome: cambiar "success" por 1, y cualquier otro valor a 0
     - campaign_outcome: cambiar "yes" por 1 y cualquier otro valor a 0
     - last_contact_day: crear un valor con el formato "YYYY-MM-DD",
         combinando los campos "day" y "month" con el año 2022.
@@ -98,8 +49,53 @@ if __name__ == "__main__":
 
     """
 
-   # return
+    import pandas as pd
+    import zipfile
+    import os
+    import glob
+    input_folder = "files/input/"
+    output_folder = "files/output/"
 
+    os.makedirs(output_folder, exist_ok=True)
 
-#if __name__ == "__main__":
- #   clean_campaign_data()
+    zip_files = glob.glob(os.path.join(input_folder, "*.zip"))
+
+    dataframes = []
+
+    for zip_file in zip_files:
+        with zipfile.ZipFile(zip_file, "r") as z:
+            for file_name in z.namelist():
+                if file_name.endswith(".csv"):
+                    with z.open(file_name) as f:
+                        df = pd.read_csv(f, sep=",", encoding="utf-8")
+                        dataframes.append(df)
+
+    df = pd.concat(dataframes, ignore_index=True)
+
+    # Crear client.csv
+    clinte = df[["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]].copy()
+    clinte["job"] = clinte["job"].str.replace(".", "", regex=False).str.replace("-", "_", regex=False)
+    clinte["education"] = clinte["education"].str.replace(".", "_", regex=False).replace("unknown", pd.NA)
+    clinte["credit_default"] = clinte["credit_default"].apply(lambda x: 1 if x == "yes" else 0)
+    clinte["mortgage"] = clinte["mortgage"].apply(lambda x: 1 if x == "yes" else 0)
+    clinte.to_csv(os.path.join(output_folder, "client.csv"), index=False, encoding="utf-8")
+
+    # Crear campaign.csv
+    camping = df[[
+        "client_id", "number_contacts", "contact_duration", 
+        "previous_campaign_contacts", "previous_outcome", "campaign_outcome", "day", "month"
+    ]].copy()
+
+    camping["previous_outcome"] = camping["previous_outcome"].apply(lambda x: 1 if x == "success" else 0)
+    camping["campaign_outcome"] = camping["campaign_outcome"].apply(lambda x: 1 if x == "yes" else 0)
+    camping["last_contact_date"] = pd.to_datetime(camping["day"].astype(str) + "-" + camping["month"] + "-2022", format="%d-%b-%Y")
+
+    camping = camping.drop(columns=["day", "month"])
+    camping.to_csv(os.path.join(output_folder, "campaign.csv"), index=False, encoding="utf-8")
+
+    # Crear economics.csv
+    econom = df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+    econom.to_csv(os.path.join(output_folder, "economics.csv"), index=False, encoding="utf-8")
+
+if __name__ == "__main__":
+    clean_campaign_data()
