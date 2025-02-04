@@ -7,53 +7,50 @@ import os
 import pandas as pd
 from zipfile import ZipFile
 
-def procesar_datos_campaña():
+def process_campaign_data():
     """
     Limpia y transforma los datos de una campaña de marketing de un banco, 
-    separando la información en tres archivos CSV: clientes.csv, campaña.csv 
-    y economía.csv, después de procesar los archivos CSV comprimidos en zip.
+    separando la información en tres archivos CSV: client.csv, campaign.csv 
+    y economics.csv, después de procesar los archivos CSV comprimidos en zip.
     """
 
-    mapa_meses = {
+    month_map = {
         "jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", 
         "jun": "06", "jul": "07", "aug": "08", "sep": "09", "oct": "10", 
         "nov": "11", "dec": "12"
     }
 
-    directorio_entrada = os.path.join("files", "input")
-    directorio_salida = os.path.join("files", "output")
+    input_dir = os.path.join("files", "input")
+    output_dir = os.path.join("files", "output")
     
-    os.makedirs(directorio_salida, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
-    archivos_zip = [os.path.join(directorio_entrada, f) for f in os.listdir(directorio_entrada)]
-    df_combinado = pd.concat([pd.read_csv(ZipFile(archivo_zip).open(ZipFile(archivo_zip).namelist()[0])) for archivo_zip in archivos_zip], ignore_index=True)
+    zip_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
+    combined_df = pd.concat([pd.read_csv(ZipFile(zip_file).open(ZipFile(zip_file).namelist()[0])) for zip_file in zip_files], ignore_index=True)
     
-    df_clientes = df_combinado[["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]].copy()
-    df_clientes["job"] = df_clientes["job"].str.replace(".", "").str.replace("-", "_")
-    df_clientes["education"] = df_clientes["education"].replace("unknown", pd.NA).apply(lambda x: x.replace("-", "_").replace(".", "_") if pd.notna(x) else x)
-    df_clientes["credit_default"] = df_clientes["credit_default"].apply(lambda x: 1 if x == "yes" else 0)
-    df_clientes["mortgage"] = df_clientes["mortgage"].apply(lambda x: 1 if x == "yes" else 0)
+    client_df = combined_df[["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]].copy()
+    client_df["job"] = client_df["job"].str.replace(".", "").str.replace("-", "_")
+    client_df["education"] = client_df["education"].replace("unknown", pd.NA).apply(lambda x: x.replace("-", "_").replace(".", "_") if pd.notna(x) else x)
+    client_df["credit_default"] = client_df["credit_default"].apply(lambda x: 1 if x == "yes" else 0)
+    client_df["mortgage"] = client_df["mortgage"].apply(lambda x: 1 if x == "yes" else 0)
 
-    # Filtrando y procesando 
-    df_campaña = df_combinado[["client_id", "number_contacts", "contact_duration", "previous_campaign_contacts", "previous_outcome", "campaign_outcome", "month", "day"]].copy()
-    df_campaña["month"] = df_campaña["month"].apply(lambda x: mapa_meses.get(x.lower(), "00"))
-    df_campaña["previous_outcome"] = df_campaña["previous_outcome"].apply(lambda x: 1 if x == "success" else 0)
-    df_campaña["campaign_outcome"] = df_campaña["campaign_outcome"].apply(lambda x: 1 if x == "yes" else 0)
-    df_campaña["month"] = df_campaña["month"].astype(str).str.zfill(2)
-    df_campaña["day"] = df_campaña["day"].astype(str).str.zfill(2)
-    df_campaña["last_contact_date"] = "2022-" + df_campaña["month"] + "-" + df_campaña["day"]
-    df_campaña.drop(columns=["month", "day"], inplace=True)
+    campaign_df = combined_df[["client_id", "number_contacts", "contact_duration", "previous_campaign_contacts", "previous_outcome", "campaign_outcome", "month", "day"]].copy()
+    campaign_df["month"] = campaign_df["month"].apply(lambda x: month_map.get(x.lower(), "00"))
+    campaign_df["previous_outcome"] = campaign_df["previous_outcome"].apply(lambda x: 1 if x == "success" else 0)
+    campaign_df["campaign_outcome"] = campaign_df["campaign_outcome"].apply(lambda x: 1 if x == "yes" else 0)
+    campaign_df["month"] = campaign_df["month"].astype(str).str.zfill(2)
+    campaign_df["day"] = campaign_df["day"].astype(str).str.zfill(2)
+    campaign_df["last_contact_date"] = "2022-" + campaign_df["month"] + "-" + campaign_df["day"]
+    campaign_df.drop(columns=["month", "day"], inplace=True)
 
-    
-    df_economia = df_combinado[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+    economics_df = combined_df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
 
-    # Guardar los DataFrames 
-    df_clientes.to_csv(os.path.join(directorio_salida, "clientes.csv"), index=False)
-    df_campaña.to_csv(os.path.join(directorio_salida, "campaña.csv"), index=False)
-    df_economia.to_csv(os.path.join(directorio_salida, "economía.csv"), index=False)
+    client_df.to_csv(os.path.join(output_dir, "client.csv"), index=False)
+    campaign_df.to_csv(os.path.join(output_dir, "campaign.csv"), index=False)
+    economics_df.to_csv(os.path.join(output_dir, "economics.csv"), index=False)
 
 if __name__ == "__main__":
-    procesar_datos_campaña()
+    process_campaign_data()
     
     
    
